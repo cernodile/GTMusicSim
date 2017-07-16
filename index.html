@@ -1,0 +1,55 @@
+<!DOCTYPE HTML>
+<html>
+   <head>
+      <title>Growtopia Music Simulator</title>
+   </head>
+   <body>
+      <div id="buttons">
+         <span id="btn">Play</span>
+         <span id="pause">Stop</span>
+         <span id="bpm">Set BPM</span>
+         <span id="loop">Loop: ON</span>
+         <span id="save" onclick="javascript:save()">Save</span>
+         <span id="load" onclick="javascript:clickFile()">Load Song</span>
+         <input type="file" id="fileinput" accept=".gtmusic" style="width:0;height:0;position:absolute;visibility:hidden;">
+      </div>
+      <img src="./assets/gear.png" width="0">
+      <div id="buttons">
+         <img src="./assets/piano.png" class="choose-note" onclick="note(0, this)" id="active">
+         <img src="./assets/flat_piano.png" class="choose-note" onclick="note(1, this)">
+         <img src="./assets/sharp_piano.png" class="choose-note" onclick="note(2, this)">
+         <img src="./assets/drum.png" class="choose-note" onclick="note(3, this)">
+         <img src="./assets/bass.png" class="choose-note" onclick="note(4, this)">
+         <img src="./assets/flat_bass.png" class="choose-note" onclick="note(5, this)">
+         <img src="./assets/sharp_bass.png" class="choose-note" onclick="note(6, this)">
+         <img src="./assets/spooky.png" class="choose-note" onclick="note(7, this)">
+         <img src="./assets/sax.png" class="choose-note" onclick="note(8, this)">
+         <img src="./assets/flat_sax.png" class="choose-note" onclick="note(9, this)">
+         <img src="./assets/sharp_sax.png" class="choose-note" onclick="note(10, this)">
+         <img src="./assets/blank.png" class="choose-note" onclick="note(13, this)">
+         <img src="./assets/repeat_begin.png" class="choose-note" onclick="note(11, this)">
+         <img src="./assets/repeat_end.png" class="choose-note" onclick="note(12, this)">
+      </div>
+      <div id="canvas" style="width:90%">
+         <!-- Remove style if you got css set up -->
+         <canvas id="loadout" width="12832" height="480">Your browser doesn't support "canvas", therefore you cannot use GT Music Player!</canvas>
+      </div>
+      <div id="sum">
+         <span id="count_piano"><img src="./assets/piano.png">0</span>
+         <span id="count_flat_piano"><img src="./assets/flat_piano.png">0</span>
+         <span id="count_sharp_piano"><img src="./assets/sharp_piano.png">0</span>
+         <span id="count_drum"><img src="./assets/drum.png">0</span>
+         <span id="count_bass"><img src="./assets/bass.png">0</span>
+         <span id="count_flat_bass"><img src="./assets/flat_bass.png">0</span>
+         <span id="count_sharp_bass"><img src="./assets/sharp_bass.png">0</span>
+         <span id="count_spooky"><img src="./assets/spooky.png">0</span>
+         <span id="count_sax"><img src="./assets/sax.png">0</span>
+         <span id="count_flat_sax"><img src="./assets/flat_sax.png">0</span>
+         <span id="count_sharp_sax"><img src="./assets/sharp_sax.png">0</span>
+         <span id="count_blank"><img src="./assets/blank.png">0</span>
+         <span id="count_repeat_begin"><img src="./assets/repeat_begin.png">0</span>
+         <span id="count_repeat_end"><img src="./assets/repeat_end.png">0</span>
+      </div>
+      <span id="notice">Made by Joann M&otilde;ndresku (@cernodile), assets used in this tool belong to their respective authors.</span>
+   </body>
+</html>
