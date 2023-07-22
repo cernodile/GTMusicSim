@@ -1,58 +1,167 @@
-<!DOCTYPE HTML>
+<!DOCTYPE html>
 <html>
-   <head>
-      <title>Growtopia Music Simulator</title>
-      <script src="./NoteConstructor.js"></script>
-      <script src="./Constants.js"></script>
-      <script src="./Player.js"></script>
-   </head>
-   <body>
-      <div id="buttons">
-         <span id="btn">Play</span>
-         <span id="pause">Stop</span>
-         <span id="bpm">Set BPM</span>
-         <span id="loop">Loop: ON</span>
-         <span id="save" onclick="javascript:save()">Save</span>
-         <span id="load" onclick="javascript:clickFile()">Load Song</span>
-         <input type="file" id="fileinput" accept=".gtmusic" style="width:0;height:0;position:absolute;visibility:hidden;">
-      </div>
-      <img src="./assets/gear.png" width="0">
-      <div id="buttons">
-         <img src="./assets/piano.png" class="choose-note" onclick="note(0, this)" id="active">
-         <img src="./assets/flat_piano.png" class="choose-note" onclick="note(1, this)">
-         <img src="./assets/sharp_piano.png" class="choose-note" onclick="note(2, this)">
-         <img src="./assets/drum.png" class="choose-note" onclick="note(3, this)">
-         <img src="./assets/bass.png" class="choose-note" onclick="note(4, this)">
-         <img src="./assets/flat_bass.png" class="choose-note" onclick="note(5, this)">
-         <img src="./assets/sharp_bass.png" class="choose-note" onclick="note(6, this)">
-         <img src="./assets/spooky.png" class="choose-note" onclick="note(7, this)">
-         <img src="./assets/sax.png" class="choose-note" onclick="note(8, this)">
-         <img src="./assets/flat_sax.png" class="choose-note" onclick="note(9, this)">
-         <img src="./assets/sharp_sax.png" class="choose-note" onclick="note(10, this)">
-         <img src="./assets/blank.png" class="choose-note" onclick="note(13, this)">
-         <img src="./assets/repeat_begin.png" class="choose-note" onclick="note(11, this)">
-         <img src="./assets/repeat_end.png" class="choose-note" onclick="note(12, this)">
-      </div>
-      <div id="canvas" style="width:90%">
-         <!-- Remove style if you got css set up -->
-         <canvas id="loadout" width="12832" height="480">Your browser doesn't support "canvas", therefore you cannot use GT Music Player!</canvas>
-      </div>
-      <div id="sum">
-         <span id="count_piano"><img src="./assets/piano.png">0</span>
-         <span id="count_flat_piano"><img src="./assets/flat_piano.png">0</span>
-         <span id="count_sharp_piano"><img src="./assets/sharp_piano.png">0</span>
-         <span id="count_drum"><img src="./assets/drum.png">0</span>
-         <span id="count_bass"><img src="./assets/bass.png">0</span>
-         <span id="count_flat_bass"><img src="./assets/flat_bass.png">0</span>
-         <span id="count_sharp_bass"><img src="./assets/sharp_bass.png">0</span>
-         <span id="count_spooky"><img src="./assets/spooky.png">0</span>
-         <span id="count_sax"><img src="./assets/sax.png">0</span>
-         <span id="count_flat_sax"><img src="./assets/flat_sax.png">0</span>
-         <span id="count_sharp_sax"><img src="./assets/sharp_sax.png">0</span>
-         <span id="count_blank"><img src="./assets/blank.png">0</span>
-         <span id="count_repeat_begin"><img src="./assets/repeat_begin.png">0</span>
-         <span id="count_repeat_end"><img src="./assets/repeat_end.png">0</span>
-      </div>
-      <span id="notice">Made by Joann M&otilde;ndresku (@cernodile), assets used in this tool belong to their respective authors.</span>
-   </body>
+    <head>
+        <title>Growtopia Music Simulator</title>
+        <script src="./NoteConstructor.js"></script>
+        <script src="./Constants.js"></script>
+        <script src="./Player.js"></script>
+    </head>
+    <body>
+        <div id="buttons">
+            <span id="btn">Play</span>
+            <span id="pause">Stop</span>
+            <span id="bpm">Set BPM</span>
+            <span id="loop">Loop: ON</span>
+            <span id="save" onclick="javascript:saveMusicGMSF()">Save</span>
+            <span id="load" onclick="javascript:clickFile()">Load Song</span>
+            <input type="file" id="fileinput" accept=".gtmusic" style="width: 0; height: 0; position: absolute; visibility: hidden;" />
+        </div>
+        <img src="./assets/gear.png" width="0" />
+        <div id="buttons">
+            <img src="./assets/piano.png" class="choose-note" onclick="note(0, this)" id="active" />
+            <img src="./assets/flat_piano.png" class="choose-note" onclick="note(1, this)" />
+            <img src="./assets/sharp_piano.png" class="choose-note" onclick="note(2, this)" />
+            <img src="./assets/drum.png" class="choose-note" onclick="note(3, this)" />
+            <img src="./assets/bass.png" class="choose-note" onclick="note(4, this)" />
+            <img src="./assets/flat_bass.png" class="choose-note" onclick="note(5, this)" />
+            <img src="./assets/sharp_bass.png" class="choose-note" onclick="note(6, this)" />
+            <img src="./assets/sax.png" class="choose-note" onclick="note(8, this)" />
+            <img src="./assets/flat_sax.png" class="choose-note" onclick="note(9, this)" />
+            <img src="./assets/sharp_sax.png" class="choose-note" onclick="note(10, this)" />
+            <img src="./assets/flute.png" class="choose-note" onclick="note(15, this)" />
+            <img src="./assets/flat_flute.png" class="choose-note" onclick="note(16, this)" />
+            <img src="./assets/sharp_flute.png" class="choose-note" onclick="note(17, this)" />
+            <img src="./assets/spanish_guitar.png" class="choose-note" onclick="note(18, this)" />
+            <img src="./assets/flat_spanish_guitar.png" class="choose-note" onclick="note(19, this)" />
+            <img src="./assets/sharp_spanish_guitar.png" class="choose-note" onclick="note(20, this)" />
+            <img src="./assets/violin.png" class="choose-note" onclick="note(21, this)" />
+            <img src="./assets/flat_violin.png" class="choose-note" onclick="note(22, this)" />
+            <img src="./assets/sharp_violin.png" class="choose-note" onclick="note(23, this)" />
+            <img src="./assets/lyre.png" class="choose-note" onclick="note(24, this)" />
+            <img src="./assets/flat_lyre.png" class="choose-note" onclick="note(25, this)" />
+            <img src="./assets/sharp_lyre.png" class="choose-note" onclick="note(26, this)" />
+            <img src="./assets/el_guitar.png" class="choose-note" onclick="note(27, this)" />
+            <img src="./assets/flat_el_guitar.png" class="choose-note" onclick="note(28, this)" />
+            <img src="./assets/sharp_el_guitar.png" class="choose-note" onclick="note(29, this)" />
+            <img src="./assets/mexican_trumpet.png" class="choose-note" onclick="note(30, this)" />
+            <img src="./assets/flat_mexican_trumpet.png" class="choose-note" onclick="note(31, this)" />
+            <img src="./assets/sharp_mexican_trumpet.png" class="choose-note" onclick="note(32, this)" />
+            <img src="./assets/blank.png" class="choose-note" onclick="note(13, this)" />
+            <img src="./assets/spooky_note.png" class="choose-note" onclick="note(7, this)" />
+            <img src="./assets/festive_note.png" class="choose-note" onclick="note(14, this)" />
+            <img src="./assets/repeat_begin.png" class="choose-note" onclick="note(11, this)" />
+            <img src="./assets/repeat_end.png" class="choose-note" onclick="note(12, this)" />
+        </div>
+        <div id="canvas" style="width: 90%;">
+            <!-- Remove style if you got css set up -->
+            <div id="loading" style="bottom: 20%; left: 30%; display: block; font-weight: bold; color: white; position: absolute; pointer-events: none; padding: 3px; width: 37%; height: 1.25em; text-align: center;">
+                <span>Loading - Please wait.</span>
+            </div>
+            <canvas id="loadout" width="12832" height="480">Your browser doesn't support "canvas", therefore you cannot use GT Music Player!</canvas>
+        </div>
+        <div id="sum">
+            <span id="count_piano"><img src="./assets/piano.png" />0</span>
+            <span id="count_flat_piano"><img src="./assets/flat_piano.png" />0</span>
+            <span id="count_sharp_piano"><img src="./assets/sharp_piano.png" />0</span>
+            <span id="count_drum"><img src="./assets/drum.png" />0</span>
+            <span id="count_bass"><img src="./assets/bass.png" />0</span>
+            <span id="count_flat_bass"><img src="./assets/flat_bass.png" />0</span>
+            <span id="count_sharp_bass"><img src="./assets/sharp_bass.png" />0</span>
+            <span id="count_sax"><img src="./assets/sax.png" />0</span>
+            <span id="count_flat_sax"><img src="./assets/flat_sax.png" />0</span>
+            <span id="count_sharp_sax"><img src="./assets/sharp_sax.png" />0</span>
+            <span id="count_flute"><img src="./assets/flute.png" />0</span>
+            <span id="count_flat_flute"><img src="./assets/flat_flute.png" />0</span>
+            <span id="count_sharp_flute"><img src="./assets/sharp_flute.png" />0</span>
+            <span id="count_spanish_guitar"><img src="./assets/spanish_guitar.png" />0</span>
+            <span id="count_flat_spanish_guitar"><img src="./assets/flat_spanish_guitar.png" />0</span>
+            <span id="count_sharp_spanish_guitar"><img src="./assets/sharp_spanish_guitar.png" />0</span>
+            <span id="count_violin"><img src="./assets/violin.png" />0</span>
+            <span id="count_flat_violin"><img src="./assets/flat_violin.png" />0</span>
+            <span id="count_sharp_violin"><img src="./assets/sharp_violin.png" />0</span>
+            <span id="count_lyre"><img src="./assets/lyre.png" />0</span>
+            <span id="count_flat_lyre"><img src="./assets/flat_lyre.png" />0</span>
+            <span id="count_sharp_lyre"><img src="./assets/sharp_lyre.png" />0</span>
+            <span id="count_electric_guitar"><img src="./assets/el_guitar.png" />0</span>
+            <span id="count_flat_electric_guitar"><img src="./assets/flat_el_guitar.png" />0</span>
+            <span id="count_sharp_electric_guitar"><img src="./assets/sharp_el_guitar.png" />0</span>
+            <span id="count_mexican_trumpet"><img src="./assets/mexican_trumpet.png" />0</span>
+            <span id="count_flat_mexican_trumpet"><img src="./assets/flat_mexican_trumpet.png" />0</span>
+            <span id="count_sharp_mexican_trumpet"><img src="./assets/sharp_mexican_trumpet.png" />0</span>
+            <span id="count_blank"><img src="./assets/blank.png" />0</span>
+            <span id="count_spooky_note"><img src="./assets/spooky_note.png" />0</span>
+            <span id="count_festive_note"><img src="./assets/festive_note.png" />0</span>
+            <span id="count_repeat_begin"><img src="./assets/repeat_begin.png" />0</span>
+            <span id="count_repeat_end"><img src="./assets/repeat_end.png" />0</span>
+        </div>
+
+        <div id="footer">
+            <p>&copy; 2016 - 2023 cernodile.com - Joann M&otilde;ndresku. Image and audio assets used in this tool belong to Ubisoft.</p>
+            <p>Usage of on-site assets outside of <strong>cernodile.com</strong> is <strong>strictly prohibited</strong> unless stated otherwise.</p>
+        </div>
+        <script type = "text/javascript" >
+            window.addEventListener("beforeunload", function(e) {
+                var c = "It looks like you're attempting to leave the page. " +
+                    'If you leave before saving, your changes will be lost.';
+
+                (e || window.event).returnValue = c;
+                return c;
+            });
+
+        // shamelessly copied from: https://stackoverflow.com/questions/901115/how-can-i-get-query-string-values-in-javascript
+        function getParameterByName(name, url = window.location.href) {
+            name = name.replace(/[\[\]]/g, '\\$&');
+            var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+                results = regex.exec(url);
+            if (!results) return null;
+            if (!results[2]) return '';
+            return decodeURIComponent(results[2].replace(/\+/g, ' '));
+        }
+
+        var file = getParameterByName("path");
+        if (file !== null && file != "") {
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", "./musicSim/songs/" + file, true);
+            if (file.endsWith(".GMSF"))
+                xhr.responseType = "arraybuffer";
+            xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                if (xhr.responseType == "arraybuffer")
+                    loadGMSF(new DataView(xhr.response));
+                else
+                    loadMusicSave(xhr.responseText);
+                }
+            }
+            xhr.send();
+        }
+
+        function readSingleFile(evt) {
+            var f = evt.target.files[0];
+            if (f) {
+                var r = new FileReader();
+                r.onload = function(e) {
+                    var contents = e.target.result;
+                    if (f.name.endsWith(".gtmusic")) {
+                        if (contents.startsWith("%cernmusicsim;")) {
+                            loadMusicSave(contents);
+                        } else alert("Corrupt .gtmusic file");
+                    } else if (f.name.endsWith(".GMSF")) {
+                        loadGMSF(new DataView(e.target.result));
+                    } else alert("Please load a .gtmusic file!");
+                }
+                if (f.name.endsWith(".GMSF"))
+                    r.readAsArrayBuffer(f);
+                else r.readAsText(f);
+            } else {
+                alert("No file selected.");
+            }
+        }
+
+        function clickFile() {
+            document.getElementById('fileinput').click();
+        }
+        document.getElementById('fileinput').addEventListener('change', readSingleFile, false);
+        </script>
+    </body>
 </html>
+

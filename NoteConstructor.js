@@ -1,115 +1,60 @@
-class Note {
+class Note_V2 {
     constructor(args) {
         this.file = args.path;
+        this.numType = args.numType;
+        this.stem = args.stem;
+        this.gearType = args.gearType || "-";
         this.type = args.type || "Unidentified";
-        if (!this.type.includes("repeat") && !this.type.includes("blank")) {
-            this.Audio = new Audio("./notes/" + this.file);
-            this.Audio.autoplay = true;
-            this.Audio.volume = 0.00000001;
-            this.Audio.load();
+        this.flat = args.flat || false;
+        this.sharp = args.sharp || false;
+        if (args.audioCtx == null)
+            throw new Error(`Missing context for ${args.path}`);
+        this.audioCtx = args.audioCtx;
+        if (this.type != "repeat_begin" && this.type != "repeat_end" && this.type != "blank") {
+            this.source = this.audioCtx.createBufferSource();
+            const request = new XMLHttpRequest();
+            request.open("GET", "./notes/" + this.file);
+            request.responseType = "arraybuffer";
+            request.onload = () => {
+                const audioData = request.response;
+                audioCtx.decodeAudioData(
+                    audioData,
+                    (buffer) => {
+                        this.source.buffer = buffer;
+                    }, (err) => console.error(err.err),
+                );
+                window.dispatchEvent(new CustomEvent("loadedAsset", {
+                    detail: {
+                        file: "./notes/" + this.file
+                    }
+                }));
+            }
+            request.send();
         }
         this.key = args.key || "?";
     }
-    load() {
-        if (!this.type.includes("repeat") && !this.type.includes("blank")) {
-            this.Audio = new Audio("./notes/" + this.file);
-            this.Audio.autoplay = true;
-            this.Audio.volume = 0.00000001;
-            this.Audio.load();
-        }
-    }
-    play() {
-        if (!this.type.includes("repeat") && !this.type.includes("blank")) {
-            this.Audio = new Audio("./notes/" + this.file);
-            this.Audio.autoplay = true;
-            this.Audio.volume = 0.5;
-            this.Audio.load();
-            this.Audio.play();
+    play(volume = 0.33) {
+        if (this.type != "repeat_begin" && this.type != "repeat_end" && this.type != "blank") {
+            var x = this.audioCtx.createBufferSource();
+            x.buffer = this.source.buffer;
+            if (volume != 0.33) {
+                var note_gain = audioCtx.createGain();
+                note_gain.gain.value = volume;
+                note_gain.connect(audioCtx.destination);
+                x.connect(note_gain);
+                x.addEventListener("ended", () => {note_gain.disconnect(audioCtx.destination);});
+            } else x.connect(gain);
+            x.start();
         }
     }
     toString() {
-        let t = "P";
+        let t = this.gearType;
         let k = this.key;
         let n = "-";
-        switch (this.type) {
-            case "piano":
-                t = "P";
-                n = "-";
-                break;
-            case "flat_piano":
-                t = "P";
-                n = "b";
-                break;
-            case "sharp_piano":
-                t = "P";
-                n = "#";
-                break;
-            case "spooky":
-                t = "H";
-                n = "-";
-                break;
-            case "drum":
-                t = "D";
-                n = "-";
-                break;
-            case "bass":
-                t = "B";
-                n = "-";
-                break;
-            case "flat_bass":
-                t = "B";
-                n = "b";
-                break;
-            case "sharp_bass":
-                t = "B";
-                n = "#";
-                break;
-            case "sax":
-                t = "S";
-                n = "-";
-                break;
-            case "flat_sax":
-                t = "S";
-                n = "b";
-                break;
-            case "sharp_sax":
-                t = "S";
-                n = "#";
-                break;
-            case "repeat_begin":
-                t = "r";
-                n = "-";
-                break;
-            case "repeat_end":
-                t = "R";
-                n = "-";
-                break;
-            case "blank":
-                t = "L";
-                n = "-";
-                break;
-            default:
-                break;
-        }
+        if (this.type.includes("flat"))
+            n = "b";
+        else if (this.type.includes("sharp"))
+            n = "#";
         return t + k + n;
-    }
-    copy(type) {
-        let n = Object.create(Object.getPrototypeOf(this), Object.getOwnPropertyDescriptors(this));
-        if (type === "sharp") {
-            n.type = n.type.replace("flat", "sharp");
-            n.key = line(lineReverse(n.key) + 1);
-            switch (n.key) {
-                case "e":
-                    n.file = n.file.replace("5", "6");
-                    break;
-                case "b":
-                    n.file = n.file.replace("12", "13");
-                    break;
-                case "E":
-                    n.file = n.file.replace("17", "18");
-                    break;
-            }
-        }
-        return n;
     }
 }
