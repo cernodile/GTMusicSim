@@ -1,18 +1,15 @@
 var song = [];
 var furthest = 0;
+var earliest = 1;
 var state = 0;
 var hl = true;
 var filesLoaded = false;
+var blockDraw = false;
 var loopTimer = 150;
-var repeatProgress = [0, 0];
 var sidebarColour = "#6088CD";
 var primaryAccentColour = "#95DAFA";
 var secondaryAccentColour = "#85C2DF";
 var trackHighlightColour = "#C8E9F9";
-var repeats = {
-    "begins": [],
-    "ends": []
-};
 for (var d = 0; d < 400; d++) {
     var arrColumn = [null, null, null, null, null, null, null, null, null, null, null, null, null, null];
     song.push(arrColumn);
@@ -21,6 +18,20 @@ var lp = 1;
 var locked = false;
 var loop = true;
 var playing = false;
+//var android = false;
+var curRackX = -1;
+var curRackY = -1;
+var android = navigator.userAgent.match(/Android/i);
+if (android) {
+    if (navigator.userAgent.match(/Firefox/i)) {
+        android = false; // firefox is fine
+    }
+}/* else {
+    if (navigator.userAgent.match(/Chrome/i)) {
+        android = true;
+    }
+
+}*/
 
 function line(id) {
     switch (id) {
@@ -262,6 +273,7 @@ function convertToGMSFNoteType(x) {
 }
 function updateNoteCount() {
     var data = {
+        "arack": 0,
         "piano": 0,
         "flat_piano": 0,
         "sharp_piano": 0,
@@ -300,7 +312,8 @@ function updateNoteCount() {
         for (var n in song[m]) {
             if (song[m][n] !== null) {
                 if (Array.isArray(song[m][n])) {
-                    for (var k = 0; k < 5; k++) { if (song[m][n][k] !== null) { data[song[m][n][k].type]++; } }
+                    data.arack = data.arack + 1;
+                    //for (var k = 0; k < 5; k++) { if (song[m][n][k] !== null) { data[song[m][n][k].type]++; } }
                 } else data[song[m][n].type]++;
             }
         }
@@ -363,7 +376,7 @@ function saveMusicGMSF() {
                             data[seek + ((yOff - y) * song.lengtH) + x + (k * 2) + 1] = 0;
                         }
                     }
-                    data[seek + ((yOff - y) * song.length) + x + 10] = Math.round(note[5] * 3.03 * 100);
+                    data[seek + ((yOff - y) * song.length) + x + 10] = Math.round(note[5] * 100);
                     seek += 10;
                 } else {
                     data[seek + ((yOff - y) * song.length) + x] = convertToGMSFNoteType(note.numType);
@@ -396,7 +409,8 @@ function loadGMSF(x) {
         alert("Corrupt .GMSF file.");
         return;
     };
-    if (window.looper !== null && playing) { clearInterval(window.looper); playing = false; lp = 0; };
+    var wasPlaying = playing;
+    if (window.looper !== null && playing) { clearInterval(window.looper); playing = false; locked = false; lp = earliest; };
     loopTimer = getBpm(x.getUint8(6, true));
     var rowLength = x.getUint16(8, true);
     song = [];
@@ -406,13 +420,17 @@ function loadGMSF(x) {
         song.push(arrColumn);
     }
     if (rowsToUse > 400) {
+        console.log("Need to resize canvas...");
         document.getElementById("loadout").width = (rowsToUse * 32) + 32;
-        var canvas = document.getElementById("loadout");
+        window.canvas = document.getElementById("loadout");
         if (canvas.width > 32767)
             canvas.width = 32767;
-        c = canvas.getContext("2d");
+        window.c = canvas.getContext("2d", { alpha: false });
+        window.c.imageSmoothingEnabled = false;
+        if (!android) createAtlas();
     }
     var seek = 12;
+    console.log("Parsing GMSF data.");
     for (var i = 0; i < 14; i++) {
         for (var j = 0; j < rowLength; j++) {
             var noteID = x.getUint8(seek, true);
@@ -461,16 +479,19 @@ function loadGMSF(x) {
                     song[j][14 - i] = toNote(14 - i, 7);
                     break;
                 case 15:
-                    song[j][14 - i] = [null, null, null, null, null, null];
+                    song[j][14 - i] = [null, null, null, null, null, null, null];
                     // seek 5x
                     for (var k = 0; k < 5; k++) {
                         var rackNoteID = x.getUint8(seek++, true);
                         var position = x.getUint8(seek++, true);
-                        if (convertGMSFNoteType(rackNoteID) != 0) {
+                        if (rackNoteID != 0) {
                             song[j][14 - i][k] = toNote(14 - position, convertGMSFNoteType(rackNoteID));
                         }
                     }
-                    song[j][14 - i][5] = x.getUint8(seek++, true) / 100 * 0.33;
+                    song[j][14 - i][5] = x.getUint8(seek++, true) / 100;
+                    song[j][14 - i][6] = audioCtx.createGain();
+                    song[j][14 - i][6].gain.value = song[j][14 - i][5];
+                    song[j][14 - i][6].connect(gain);
                     break;
                case 16: // flute
                    song[j][14 - i] = toNote(14 - i, 15);
@@ -532,10 +553,21 @@ function loadGMSF(x) {
             }
         }
     }
+    console.log("GMSF loaded!");
+    updateEarliest();
+    lp = earliest;
     updateFurthest();
     updateNoteCount();
+    console.log("calling drawbox");
     drawBox();
+    console.log("calling redraw");
+    var isBlocked = blockDraw;
+    if (isBlocked) blockDraw = false;
     reDraw();
+    if (isBlocked) blockDraw = true;
+    if (wasPlaying) {
+        document.getElementById("btn").click();
+    }
 }
 
 var savefile = false;
@@ -564,6 +596,8 @@ function loadMusicSave(saveData) {
         furthest = 400;
     }
     updateFurthest();
+    updateEarliest();
+    lp = earliest;
     if (filesLoaded) {
         reDraw();
     }
@@ -574,6 +608,9 @@ function note(id, elem) {
     state = id;
     document.getElementById("active").id = "";
     switch (state) {
+        case -1:
+            img = imgdata["arack"].off;
+            return elem.id = "active";
         case 0:
             img = imgdata["piano"].off;
             return elem.id = "active";
@@ -676,57 +713,61 @@ function note(id, elem) {
     }
 }
 
+function resetRepeats()
+{
+    for (var i = 0; i < song.length; i++)
+    {
+        for (var j = 0; j < song[i].length; j++)
+        {
+            if (song[i][j] && song[i][j].activated)
+                song[i][j].activated = false;
+        }
+    }
+}
+
+var backtrack = -1;
 function myLoop() {
     if (!playing || !locked) { clearInterval(window.looper); return; }
         lp++;
+        if (backtrack != -1)
+        {
+            var old = lp;
+            if (hl) { reDrawFromTo(old - 1, old); renderGrid(old - 1, old, false);}
+            lp = backtrack;
+            backtrack = -1;
+        }
         if (lp <= furthest) {
-            let bucket = {
-                "ends": [],
-                "begins": []
-            };
-            for (var k in repeats.ends) {
-                let ob = repeats.ends[k];
-                if (ob[0] === lp - 1) {
-                    bucket.ends.push([ob[0] - 1, ob[1]]);
-                }
-            }
-            for (var k in repeats.begins) {
-                let ob = repeats.begins[k];
-                if (ob[0] < lp && ob[0] > repeatProgress[0] || ob[0] < lp && ob[0] === repeatProgress[0] && lineReverse(ob[1]) < repeatProgress[1]) {
-                    bucket.begins.push([ob[0], ob[1]]);
-                    break;
-                }
-            }
-            if (bucket.ends.length > 0) {
-                if (bucket.begins.length > 0) {
-                    var old = lp;
-                    lp = bucket.begins[0][0];
-                    repeatProgress = [lp + 1, lineReverse(bucket.begins[0][1])];
-                    if (hl) reDrawFromTo(lp, old);
-                } else if (lp > furthest - 1) {
-                    if (loop) {
-                        var old = lp;
-                        lp = 1;
-                        repeatProgress = [0, 0];
-                        if (hl) reDrawFromTo(old - 1, old);
-                    } else {
-                        if (hl) reDrawFromTo(lp - 1, lp);
-                        repeatProgress = [0, 0];
-                        locked = false;
-                        playing = false;
-                        clearInterval(window.looper);
-                        return;
+            var skippedBack = false;
+            for (var j = 0; j < song[lp - 1].length; j++) {
+                let note = song[lp - 1][j];
+                if (note !== null)
+                {
+                    if (note.numType == 12)
+                    {
+                        if (note.activated == false)
+                        {
+                            note.activated = true;
+                            skippedBack = true;
+                            backtrack = 1;
+                            for (var n = 0; n < lp - 1; n++)
+                            {
+                                if (song[n] !== null && song[n][j] && song[n][j].numType == 11)
+                                    backtrack = n + 1;
+                            }
+                            break;
+                        }
                     }
                 }
-            } else if (lp > furthest - 1) {
+            }
+            if (!skippedBack && lp > furthest - 1) {
                 if (loop) {
                     var old = lp
-                    lp = 1;
-                    repeatProgress = [0, 0];
-                    if (hl) reDrawFromTo(old - 1, old);
+                    lp = earliest;
+                    resetRepeats();
+                    if (hl) { reDrawFromTo(old - 1, old); renderGrid(old - 1, old, false);}
                 } else {
-                    if (hl) reDrawFromTo(lp - 1, lp);
-                    repeatProgress = [0, 0];
+                    if (hl) { reDrawFromTo(lp - 1, lp); renderGrid(lp - 1, lp, false); }
+                    resetRepeats();
                     locked = false;
                     playing = false;
                     clearInterval(window.looper);
@@ -737,52 +778,155 @@ function myLoop() {
         } else {
             if (loop && furthest > 0) {
                 var old = lp
-                lp = 1;
-                repeatProgress = [0, 0];
-                if (hl) reDrawFromTo(old - 1, old);
+                lp = earliest;
+                resetRepeats();
+                if (hl) { reDrawFromTo(old - 1, old); renderGrid(old - 1, old, false); }
                 //myLoop();
             } else {
-                if (hl) reDrawFromTo(lp - 1, lp);
-                repeatProgress = [0, 0];
+                if (hl) { reDrawFromTo(lp - 1, lp); renderGrid(lp - 1, lp, false); }
                 locked = false;
                 playing = false;
                 clearInterval(window.looper);
+                resetRepeats();
             }
         }
         var x = lp;
         if (hl) highLight(x, furthest);
-        for (var j in song[lp - 1]) {
+        for (var j = 0; j < song[lp - 1].length; j++) {
             if (song[lp - 1][j] !== null) {
                 if (Array.isArray(song[lp - 1][j])) {
                   for (var k = 0; k < 5; k++) {
                       if (song[lp - 1][j][k] !== null) {
-                          song[lp - 1][j][k].play(song[lp - 1][j][5]);
+                          song[lp - 1][j][k].play(song[lp - 1][j][5], song[lp - 1][j][6]);
                       }
                   }
-                } else song[lp - 1][j].play();
+                } else {
+                    song[lp - 1][j].play();
+                }
             }
         }
 }
 
+
+function updateCurrentRackVolume(volume) {
+    const rack = song[curRackX][curRackY];
+    if (volume > 100)
+        volume = 100;
+    if (volume < 0)
+        volume = 0;
+    document.getElementById("ctip-volume").value = volume;
+    if (rack !== null) {
+        rack[5] = volume / 100;
+        rack[6].gain.value = rack[5];
+    }
+}
+function createRackDialog(note) {
+    const dialogElem = document.getElementById("ctip");
+    const volumeElem = document.getElementById("ctip-volume");
+    dialogElem.style.visibility = "visible";
+    dialogElem.style.display = "block";
+    volumeElem.value = note[5] * 100;
+    setRackSelectors(note);
+}
+function ctipButton() {
+    const dialogElem = document.getElementById("ctip");
+    dialogElem.style.visibility = "hidden";
+    dialogElem.style.display = "none";
+}
+function setRackSelectors(note) {
+    const ctipDrops = document.getElementsByClassName("ctip-drop");
+    const noteDrops = document.getElementsByClassName("note-drop");
+    const elems = [];
+    for (var key in audioStor) {
+        var gearKey = audioStor[key].regular[0].gearType;
+        if (gearKey == "-")
+            continue;
+        for (var subKey in audioStor[key]) {
+            var imgButton = document.createElement("img");
+            imgButton.src = imgdata[audioStor[key][subKey][0].type].off.src;
+            imgButton.id = audioStor[key][subKey][0].numType;
+            elems.push(imgButton);
+        }
+    }
+    var noteSelectors = [];
+    for (var i = 0; i < 15; i++) {
+        var opt = document.createElement("option");
+        opt.innerText = line(i);
+        opt.value = line(i);
+        noteSelectors.push(opt);
+    }
+    for (var i = 0; i < ctipDrops.length; i++) {
+        ctipDrops[i].innerText = "";
+        for (var j = 0; j < elems.length; j++) {
+            var cloned = elems[j].cloneNode(true);
+            cloned.addEventListener("click", function () {
+                var rackIndex = parseInt(this.parentElement.id[this.parentElement.id.length - 1]) - 1;
+                var actives = this.parentElement.getElementsByClassName("active");
+                if (actives.length > 0)
+                    actives[0].className = "";
+                this.className = "active";
+                if (noteDrops[rackIndex].children[0].selectedIndex == 0) {
+                    noteDrops[rackIndex].children[0].selectedIndex = 1;
+                    noteDrops[rackIndex].children[0].children[1].setAttribute("selected", "");
+                }
+                note[rackIndex] = toNote(15 - noteDrops[rackIndex].children[0].selectedIndex, parseInt(this.id));
+                console.log(note, noteDrops[rackIndex].children[0].selectedIndex, this.id);
+            }, false);
+            if (note[i] !== null && cloned.id == note[i].numType) {
+                cloned.className = "active";
+            }
+            ctipDrops[i].appendChild(cloned);
+        }
+    }
+    for (var i = 0; i < noteDrops.length; i++) {
+        noteDrops[i].innerText = "";
+        var select = document.createElement("select");
+        select.id = i;
+        for (var j = 0; j < noteSelectors.length; j++) {
+            var cloned = noteSelectors[j].cloneNode(true);
+            if (note[i] !== null && note[i].key == cloned.value) {
+                cloned.setAttribute("selected", "");
+            }
+            cloned.addEventListener("click", function() {
+                this.parentElement[this.parentElement.selectedIndex].removeAttribute("selected");
+                this.setAttribute("selected", "");
+                var rackIndex = parseInt(this.parentElement.parentElement.id[this.parentElement.parentElement.id.length - 1]) - 1;
+                if (note[rackIndex] !== null) {
+                    if (this.value == "?") {
+                        note[rackIndex] = null;
+                        var actives = ctipDrops[rackIndex].getElementsByClassName("active");
+                        if (actives.length > 0)
+                            actives[0].className = "";
+                    } else note[rackIndex] = toNote(15 - lineReverse(this.value), note[rackIndex].numType);
+                }
+            }, false);
+            select.appendChild(cloned);
+        }
+        noteDrops[i].appendChild(select);
+    }
+}
+
+function updateEarliest() {
+    let tr = [].concat(song);
+
+    for (var i = 0; i < tr.length; i++) {
+        if (!tr[i])
+            continue;
+        tr[i] = [].concat(song[i]);
+        // sort nulls to end, if first array member is not null, its a valid note.
+        if (tr[i].sort(function(a, b){ return (a===null)-(b===null) || +(a>b)||-(a<b);})[0] !== null) {
+            earliest = i + 1;
+            return earliest;
+        }
+    }
+    return 1;
+}
 function updateFurthest() {
     let tr = [].concat(song);
     let fur = 0;
-    repeats = {
-        "begins": [],
-        "ends": []
-    };
     tr.forEach((k, idx) => {
         tr[idx] = [].concat(song[idx]);
-        for (var k in tr[idx]) {
-            if (tr[idx][k] !== null) {
-                if (tr[idx][k].type === "repeat_begin") {
-                    repeats.begins.push([idx + 1, tr[idx][k].key]);
-                }
-                if (tr[idx][k].type === "repeat_end") {
-                    repeats.ends.push([idx + 1, tr[idx][k].key]);
-                }
-            }
-        }
+        // sort nulls to end, if first array member is not null, its a valid note.
         if (tr[idx].sort(function(a, b){ return (a===null)-(b===null) || +(a>b)||-(a<b);})[0] !== null) {
             fur = idx + 2;
         }
@@ -790,11 +934,28 @@ function updateFurthest() {
     furthest = fur;
     return fur;
 }
+window.renderGrid = function(startX, endX, extraY=false) {
+    c.beginPath();
+    c.lineWidth = 1;
+    var yMax = 15;
+    if (extraY) yMax += 1;
+    for (var x = startX; x <= endX; x++) {
+        var gridX = x * 32;
+        c.moveTo(gridX + 0.5, (extraY ? 0 : 32));
+        c.lineTo(gridX + 0.5, yMax * 32);
+    }
+    for (var y = 0; y < yMax; y++) {
+        c.moveTo(startX * 32, (y * 32) + 0.5);
+        c.lineTo(endX * 32, (y * 32) + 0.5);
+    }
+    c.stroke();
+    c.closePath();
+}
 document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("btn").addEventListener("click", function(e) {
         if (!locked) {
             var timeout = 0;
-            lp = 0;
+            lp = earliest - 1;
             playing = true;
             locked = true;
             window.looper = setInterval(function() {
@@ -831,7 +992,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
     document.getElementById("pause").addEventListener("click", function(e) {
-        lp = furthest;
+        lp = earliest - 1;
         locked = false;
         playing = false;
         loop = false;
@@ -851,9 +1012,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 return document.getElementById("loop").innerText = "Loop: ON";
         }
     });
-    var canvas = document.getElementById("loadout");
-    window.c = canvas.getContext("2d");
+    // window.durationText = document.getElementById("duration");
+    window.canvas = document.getElementById("loadout");
+    window.c = canvas.getContext("2d", { alpha: false });
     var boxSize = 32;
+    c.imageSmoothingEnabled = false;
     canvas.addEventListener('click', handleClick);
     canvas.addEventListener('contextmenu', function(e) {
         e.preventDefault();
@@ -861,22 +1024,16 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     window.drawBox = function() {
         for (var row = 0; row < 16; row++) {
-            for (var column = 0; column < 401; column++) {
+            for (var column = 0; column < song.length + 1; column++) {
                 var x = column * boxSize;
                 var y = (row) * boxSize;
-                c.beginPath();
-                c.lineWidth = 2;
-                c.strokeStyle = 'black';
                 if (x === 0 && y >= 32) {
                     c.fillStyle = sidebarColour;
                 } else {
-                    if (row % 2 == 1) c.fillStyle = secondaryAccentColour;
-                    else c.fillStyle = primaryAccentColour;
+                    c.fillStyle = primaryAccentColour;
                 }
                 if (row === 15) c.fillStyle = "#fff";
-                c.rect(x, y, boxSize, boxSize);
-                c.fill();
-                c.stroke();
+                c.fillRect(x, y, boxSize, boxSize);
                 if (x === 0 && y > 0 && row !== 15) {
                     c.font = "bold 26px Century Gothic";
                     c.fillStyle = "black";
@@ -890,27 +1047,23 @@ document.addEventListener("DOMContentLoaded", () => {
                     number = ((column - 1) % 100) + 1;
                     c.fillText(number, x + 16, y + 24, boxSize, boxSize);
                 }
-                c.closePath();
                 if (y === 0 & x > 0) {
-                    c.drawImage(imgdata["gear"], x + 1, y + 1, 30, 30);
+                    if (android) c.drawImage(imgdata["gear"], x, y);
+                    else c.drawImage(atlas, (HIGHEST_NOTE_ID + 2) * 32, 0, 32, 32, x, y, 32, 32);
                 } else if (y === 0) {
-                    c.beginPath();
-                    c.lineWidth = 2;
-                    c.strokeStyle = 'black';
                     c.fillStyle = "#000000";
-                    c.rect(x, y, boxSize, boxSize);
-                    c.fill();
-                    c.stroke();
-                    c.closePath();
+                    c.fillRect(x, y, boxSize, boxSize);
                 }
             }
         }
+        renderGrid(0, song.length + 1, true);
     }
 
     function handleClick(e, del) {
-        c.fillStyle = "black";
-        var x = Math.floor(e.offsetX / boxSize) * boxSize / 32;
-        var y = Math.abs(Math.floor(e.offsetY / boxSize) * boxSize / 32 - 15) + 3;
+        var realX = (e.offsetX) * e.target.width / e.target.clientWidth;
+        var realY = (e.offsetY) * e.target.height / e.target.clientHeight;
+        var x = Math.floor(realX / boxSize) * boxSize / 32;
+        var y = Math.abs(Math.floor(realY / boxSize) * boxSize / 32 - 15) + 3;
         if (x === 0 || y === 3) {
             return;
         } else x--;
@@ -922,65 +1075,69 @@ document.addEventListener("DOMContentLoaded", () => {
         var note = song[x][y];
         if (note != null) {
             if (Array.isArray(note)) {
-                var res = [];
-                for (var k = 0; k < 5; k++) {
-                    if (note[k] !== null) {
-                        var noteString = note[k].toString();
-                        if (!noteString.startsWith("-")) {
-                            res.push(note[k].toString());
-                        }
-                    }
-                }
-                alert("To make this audio rack, set volume to " + Math.round(note[5] * 3.03 * 100) + " and input: " + res.join(" "));
-                return;
-            }
-            if (note.toString() === toNote(y, state).toString()) clear = 1;
+                if (state != -1) {
+                    curRackX = x;
+                    curRackY = y;
+                    createRackDialog(note);
+                    //alert("To make this audio rack, set volume to " + Math.round(note[5] * 100) + " and input: " + res.join(" "));
+                    return;
+                } else clear = 1;
+            } else if (note.toString() === toNote(y, state).toString()) clear = 1;
         }
         if (del) clear = 1;
         if (clear) {
-            c.clearRect(Math.floor(e.offsetX / boxSize) * boxSize,
-                Math.floor(e.offsetY / boxSize) * boxSize,
+            c.clearRect(Math.floor(realX / boxSize) * boxSize,
+                Math.floor(realY / boxSize) * boxSize,
                 boxSize, boxSize);
-            c.beginPath();
-            if (y % 2 == 0) c.fillStyle = secondaryAccentColour;
-            else c.fillStyle = primaryAccentColour;
-            c.lineWidth = 2;
-            c.strokeStyle = 'black';
-            c.rect(Math.floor(e.offsetX / boxSize) * boxSize,
-                Math.floor(e.offsetY / boxSize) * boxSize,
-                boxSize, boxSize);
-            c.fill();
-            c.stroke();
-            c.closePath();
+            c.fillStyle = primaryAccentColour;
+            var offX = Math.floor(realX / boxSize) * boxSize;
+            var offY = Math.floor(realY / boxSize) * boxSize;
+            c.fillRect(offX, offY, boxSize, boxSize);
         } else {
-            c.drawImage(img, Math.floor(e.offsetX / boxSize) * boxSize + 1,
-                Math.floor(e.offsetY / boxSize) * boxSize + 1,
-                boxSize - 2, boxSize - 2);
+            var offX = Math.floor(realX / boxSize) * boxSize;
+            var offY = Math.floor(realY / boxSize) * boxSize;
+            c.drawImage(img, offX, offY, boxSize, boxSize);
         }
+        renderGrid(x + 1, x + 2);
         if (clear === 1) {
             song[x][y] = null;
         } else {
             song[x][y] = toNote(y, state);
-            song[x][y].play();
+            if (!Array.isArray(song[x][y])) song[x][y].play();
         }
+        updateEarliest();
         updateFurthest();
         updateNoteCount();
     }
     var loaded = 0;
-    var max = 120; // give leeway like 10+ assets that could be missed
+    var max = 482; // give leeway like 10+ assets that could be missed
     window.addEventListener("loadedAsset", (obj) => {
         loaded++;
         if (loaded === max) {
+            if (!android) createAtlas();
             drawBox();
             (savefile ? reDraw() : null);
             document.getElementById("loading").remove();
             filesLoaded = true;
+            window.dispatchEvent(new CustomEvent("loaded"));
+        } else {
+            var lastPercent = Math.round((loaded - 1) / max * 100);
+            var curPercent = Math.round((loaded) / max * 100);
+            if (lastPercent != curPercent) {
+                document.getElementById("loading").innerText = "Loading - Please wait. (" + curPercent + "%)";
+            }
         }
     });
     window.dispatchEvent(new CustomEvent("loadImg"));
+    window.dispatchEvent(new CustomEvent("loadAudio"));
+    window.addEventListener("blur", function() { if (hl && playing) { reDrawFromTo(lp, lp + 1); renderGrid(lp, lp + 1); blockDraw = true; } });
+    window.addEventListener("focus", function() { if (hl && playing && blockDraw) { blockDraw = false; highLight(lp); } else if (blockDraw) { blockDraw = false; } });
     window.highLight = function(x) {
+        if (!document.hasFocus()) return;
         column = x;
-        for (var row = 0; row < 15; row++) {
+        c.fillStyle = trackHighlightColour;
+        c.fillRect(column * boxSize, 32, 32, 448);
+        for (var row = 1; row < 15; row++) {
             var x = column * boxSize;
             var y = (row) * boxSize;
             var arrX = x / 32 - 1;
@@ -988,74 +1145,61 @@ document.addEventListener("DOMContentLoaded", () => {
             if (song[arrX][arrY]) {
                 var type = song[arrX][arrY].type;
                 var key = song[arrX][arrY].key;
-                if (Array.isArray(song[arrX][arrY])) { c.drawImage(imgdata["arack"].on, x, y, 32, 32); }
-                else if (imgdata[type] !== null) { c.drawImage(imgdata[type].on, x, y, boxSize, boxSize); }
-                c.strokeRect(x, y, boxSize, boxSize);
-            } else if (y != 0) {
-                c.beginPath();
-                c.lineWidth = 2;
-                c.strokeStyle = 'black';
-                c.fillStyle = trackHighlightColour;
-                c.rect(x, y, boxSize, boxSize);
-                c.fill();
-                c.stroke();
-                c.closePath();
+                if (Array.isArray(song[arrX][arrY])) {
+                    if (android) c.drawImage(imgdata["arack"].on, x, y, 32, 32);
+                    else c.drawImage(atlas, (HIGHEST_NOTE_ID + 1) * 32, 32, 32, 32, x, y, 32, 32);
+                } else if (imgdata[type] !== null) {
+                    if (android) c.drawImage(imgdata[type].on, x, y, boxSize, boxSize);
+                    else c.drawImage(atlas, song[arrX][arrY].numType * 32, 32, 32, 32, x, y, 32, 32);
+                }
             }
             if (arrX > 0) {
-                reDrawFromTo(arrX - 1, arrX + 1);
+                reDrawFromTo(arrX, arrX + 1);
             }
         }
+        renderGrid(column - 1, column + 1);
     }
-    window.reDrawFromTo = function(a, b) {
+    window.reDrawFromTo = function(a, b, firstPass=false, stroke=false) {
+        if (blockDraw) return;
+        var origA = a;
+        if (a == 0) a++;
+        c.fillStyle = primaryAccentColour;
+        c.fillRect(a * 32, 32, (b - a) * 32, 448);
+        a = origA;
         for (var row = 0; row < 15; row++) {
             for (var column = a; column < b; column++) {
+                if (column == 0 || row == 0) {
+                    if (!firstPass) continue;
+                }
                 var x = column * boxSize;
                 var y = (row) * boxSize;
                 var arrX = x / 32 - 1;
                 var arrY = ((15 - row) * boxSize) / 32;
-                c.beginPath();
-                c.lineWidth = 2;
-                c.strokeStyle = 'black';
-                if (x === 0 && y >= 32) {
-                    c.fillStyle = sidebarColour;
-                } else {
-                    if (row % 2 == 1) c.fillStyle = secondaryAccentColour;
-                    else c.fillStyle = primaryAccentColour;
-                }
-                c.rect(x, y, boxSize, boxSize);
-                c.fill();
-                c.stroke();
                 if (song[arrX]) {
                     if (song[arrX][arrY]) {
                         var type = song[arrX][arrY].type;
                         var key = song[arrX][arrY].key;
-                        if (Array.isArray(song[arrX][arrY])) { c.drawImage(imgdata["arack"].off, x, y, 32, 32); }
-                        else if (imgdata[type] !== null) { c.drawImage(imgdata[type].off, x, y, boxSize, boxSize); }
-                        c.strokeRect(x, y, boxSize, boxSize);
+                        if (Array.isArray(song[arrX][arrY])) {
+                            if (android) c.drawImage(imgdata["arack"].off, x, y, 32, 32);
+                            else c.drawImage(atlas, (HIGHEST_NOTE_ID + 1) * 32, 0, 32, 32, x, y, 32, 32);
+                        } else if (imgdata[type] !== null) {
+                            if (android) c.drawImage(imgdata[type].off, x, y, boxSize, boxSize);
+                            else c.drawImage(atlas, song[arrX][arrY].numType * 32, 0, 32, 32, x, y, 32, 32);
+                        }
                     }
                 }
-                if (x === 0 && y > 0) {
+                if (x === 0 && y > 0 && firstPass) {
                     c.font = "bold 26px Century Gothic";
                     c.fillStyle = "black";
                     c.textAlign = "center";
                     c.fillText(line(row), x + 16, y + 24, boxSize, boxSize);
                 }
-                c.closePath();
-                if (y === 0 && x > 0) {
-                    c.drawImage(imgdata["gear"], x + 1, y + 1, 30, 30);
-                } else if (y === 0) {
-                    c.beginPath();
-                    c.lineWidth = 2;
-                    c.strokeStyle = 'black';
-                    c.fillStyle = "#000000";
-                    c.rect(x, y, boxSize, boxSize);
-                    c.fill();
-                    c.stroke();
-                }
             }
         }
+        if (stroke) renderGrid(a, b, true);
     }
     window.reDraw = function() {
-        reDrawFromTo(0, furthest + 2);
+        if (blockDraw) return;
+        reDrawFromTo(0, furthest + 2, true, true);
     }
 });

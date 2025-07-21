@@ -1,13 +1,55 @@
 // Images
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+const compressor = audioCtx.createDynamicsCompressor();
+compressor.connect(audioCtx.destination);
+//compressor.release.value = 0.14;
 const gain = audioCtx.createGain();
-gain.gain.value = 0.33;
-gain.connect(audioCtx.destination);
+gain.gain.value = 0.20;
+//gain.gain.setValueAtTime(0.33, audioCtx.CurrentTime)
+gain.connect(compressor);
 function Asset(src) {
     var im = new Image();
-    im.src = "./assets/" + src;
     im.addEventListener("load", sAsset)
+    im.src = "./assets/" + src;
     return im;
+}
+
+var HIGHEST_NOTE_ID = 32;
+function imgIdToName(x) {
+    if (x == 0) return "piano";
+    if (x == 1) return "flat_piano";
+    if (x == 2) return "sharp_piano";
+    if (x == 3) return "drum";
+    if (x == 4) return "bass";
+    if (x == 5) return "flat_bass";
+    if (x == 6) return "sharp_bass";
+    if (x == 7) return "spooky_note";
+    if (x == 8) return "sax";
+    if (x == 9) return "flat_sax";
+    if (x == 10) return "sharp_sax";
+    if (x == 11) return "repeat_begin";
+    if (x == 12) return "repeat_end";
+    if (x == 13) return "blank";
+    if (x == 14) return "festive_note";
+    if (x == 15) return "flute";
+    if (x == 16) return "flat_flute";
+    if (x == 17) return "sharp_flute";
+    if (x == 18) return "spanish_guitar";
+    if (x == 19) return "flat_spanish_guitar";
+    if (x == 20) return "sharp_spanish_guitar";
+    if (x == 21) return "violin";
+    if (x == 22) return "flat_violin";
+    if (x == 23) return "sharp_violin";
+    if (x == 24) return "lyre";
+    if (x == 25) return "flat_lyre";
+    if (x == 26) return "sharp_lyre";
+    if (x == 27) return "electric_guitar";
+    if (x == 28) return "flat_electric_guitar";
+    if (x == 29) return "sharp_electric_guitar";
+    if (x == 30) return "mexican_trumpet";
+    if (x == 31) return "flat_mexican_trumpet";
+    if (x == 32) return "sharp_mexican_trumpet";
+    return "piano";
 }
 window.addEventListener("loadImg", () => {
     imgdata = {};
@@ -143,6 +185,7 @@ function createAudioStorCache(stem, fullRange, hasFlats, letter, numType, fileSt
     return res;
 }
 
+window.addEventListener("loadAudio", () => {
 audioStor["spooky"] = createAudioStorCache("spooky_note", true, false, "-", 7, "spooky");
 audioStor["festive"] = createAudioStorCache("festive_note", true, false, "-", 14, "festive");
 audioStor["piano"] = createAudioStorCache("piano", true, true, "P", 0);
@@ -155,28 +198,58 @@ audioStor["violin"] = createAudioStorCache("violin", true, true, "V", 21);
 audioStor["lyre"] = createAudioStorCache("lyre", true, true, "L", 24);
 audioStor["electric_guitar"] = createAudioStorCache("electric_guitar", true, true, "E", 27);
 audioStor["mexican_trumpet"] = createAudioStorCache("mexican_trumpet", true, true, "T", 30);
+});
+
+function createAtlas() {
+    //window.atlas = document.createElement("canvas");
+    window.atlas = new OffscreenCanvas(canvas.width, canvas.height);
+    var noteIDs = 32;
+    window.atlasContext = atlas.getContext('2d', { alpha: false });
+    window.atlasContext.imageSmoothingEnabled = false;
+    for (var i = 0; i <= noteIDs; i++) {
+        var imgContext = imgdata[imgIdToName(i)];
+        atlasContext.drawImage(imgContext.off, i * 32, 0, 32, 32);
+        atlasContext.drawImage(imgContext.on, i * 32, 32, 32, 32);
+    }
+    atlasContext.drawImage(imgdata["arack"].off, (noteIDs + 1) * 32, 0, 32, 32);
+    atlasContext.drawImage(imgdata["arack"].on, (noteIDs + 1) * 32, 32, 32, 32);
+    atlasContext.drawImage(imgdata["gear"], (noteIDs + 2) * 32, 0, 32, 32);
+    atlasContext.drawImage(imgdata["gear"], (noteIDs + 2) * 32, 32, 32, 32);
+    //document.body.appendChild(window.atlas);
+}
 
 function toNote(convert, state) {
     if (state === 13) return new Note_V2({
-        key: line(convert),
+        key: line(14-convert),
         type: "blank",
+        numType: 13,
         audioCtx: audioCtx
     });
     if (state > 10) {
         switch (state) {
             case 11:
                 return new Note_V2({
-                    key: line(convert),
+                    key: line(14-convert),
                     type: "repeat_begin",
-                    audioCtx: audioCtx
+                    audioCtx: audioCtx,
+                    numType: 11
                 });
             case 12:
                 return new Note_V2({
-                    key: line(convert),
+                    key: line(14-convert),
                     type: "repeat_end",
-                    audioCtx: audioCtx
+                    audioCtx: audioCtx,
+                    numType: 12
                 });
         }
+    }
+    if (state === -1) {
+        var arr = [null, null, null, null, null, null, null];
+        arr[5] = 1;
+        arr[6] = audioCtx.createGain();
+        arr[6].gain.value = 1;
+        arr[6].connect(gain);
+        return arr;
     }
     if (state === 0) { return audioStor["piano"].regular[convert-1]; }
     if (state === 1) { return audioStor["piano"].flat[convert-1]; }
