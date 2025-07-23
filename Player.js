@@ -738,7 +738,7 @@ function myLoop() {
         }
         if (lp <= furthest) {
             var skippedBack = false;
-            for (var j = 0; j < song[lp - 1].length; j++) {
+            for (var j = song[lp - 1].length - 1; j > -1; j--) {
                 let note = song[lp - 1][j];
                 if (note !== null)
                 {
@@ -748,11 +748,41 @@ function myLoop() {
                         {
                             note.activated = true;
                             skippedBack = true;
-                            backtrack = 1;
-                            for (var n = 0; n < lp - 1; n++)
+                            backtrack = earliest;
+                            for (var n = earliest - 1; n < lp - 1; n++)
                             {
                                 if (song[n] !== null && song[n][j] && song[n][j].numType == 11)
                                     backtrack = n + 1;
+                            }
+                            // reset any in-between repeats as well.
+                            for (var n = backtrack; n < lp - 1; n++)
+                            {
+                                if (song[n] == null)
+                                    continue;
+                                for (var m = 0; m < song[n].length; m++)
+                                {
+                                    if (song[n][m] && song[n][m].numType == 12 && m != j)
+                                        song[n][m].activated = false;
+                                }
+                            }
+                            // reset any that have repeat *before* our backtrack above our note.
+                            for (var m = j; m < song[lp - 1].length; m++)
+                            {
+                                if (song[lp - 1][m] && song[lp - 1][m].numType == 12)
+                                {
+                                    // backtrack
+                                    let tempbacktrack = 1;
+                                    for (var n = backtrack; n < lp - 1; n++)
+                                    {
+                                        if (song[n] !== null && song[n][m] && song[n][m].numType == 11)
+                                        {
+                                            tempbacktrack = n;
+                                            break;
+                                        }
+                                    }
+                                    if (tempbacktrack != 1)
+                                        song[lp - 1][m].activated = false;
+                                }
                             }
                             break;
                         }
@@ -956,6 +986,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!locked) {
             var timeout = 0;
             lp = earliest - 1;
+            resetRepeats();
             playing = true;
             locked = true;
             window.looper = setInterval(function() {
@@ -997,6 +1028,7 @@ document.addEventListener("DOMContentLoaded", () => {
         playing = false;
         loop = false;
         clearInterval(window.looper);
+        resetRepeats();
         document.getElementById("loop").innerText = "Loop: OFF";
         setTimeout(() => {
             reDraw();
